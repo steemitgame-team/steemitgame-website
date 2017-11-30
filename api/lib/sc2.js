@@ -66,8 +66,7 @@ SteemConnect.prototype.send = function send(route, method, body, cb) {
         body: JSON.stringify(body)
     }
     request(clientServerOptions, function (error, response) {
-    //     console.log(error,response.body);
-        cb(error, response); 
+        cb(error, response);
         return response.body;
     });
 }

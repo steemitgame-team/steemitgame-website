@@ -1,3 +1,4 @@
+var request = require('request');
 class SDKError extends Error {
   constructor(message, obj) {
     super(message);
@@ -49,7 +50,26 @@ SteemConnect.prototype.getLoginURL = function getLoginURL(state) {
   return loginURL;
 };
 
+SteemConnect.prototype.me = function me(cb) {
+  return this.send('me', 'POST', {}, cb);
+};
+
 SteemConnect.prototype.send = function send(route, method, body, cb) {
+    const url = `${this.options.baseURL}/api/${route}`;
+    var clientServerOptions = {
+        uri: url,
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': this.options.accessToken
+        },
+        body: JSON.stringify(body)
+    }
+    request(clientServerOptions, function (error, response) {
+    //     console.log(error,response.body);
+        cb(error, response); 
+        return response.body;
+    });
 }
 
 exports.Initialize = function Initialize(config) {

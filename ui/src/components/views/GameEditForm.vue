@@ -7,49 +7,59 @@
       </div>
       <div class="editFormContainer">
         <div class='gameEditForm'>
-          <el-form ref='game' :model='game' label-width='150px'>
-            <el-form-item label='Game Title'>
+          <el-form ref='game' :rules='rules' :model='game' label-width='150px'>
+            <el-form-item label='Game Title' prop="title">
               <el-input v-model='game.title'></el-input>
             </el-form-item>
-            <el-form-item label='Game Description'>
+            <el-form-item label='Game Description' prop="description">
               <el-input v-model='game.description' type="textarea" :rows="2" placeholder="Please input description of your game"></el-input>
             </el-form-item>
-            <el-form-item label='Cover Image'>
-              <vue-dropzone ref="myVueDropzone" @vdropzone-success="coverImageUploaded" @vdropzone-error="coverImageUploadFail" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
+            <el-form-item label='Cover Image' prop="coverImage">
+              <vue-dropzone ref="coverImageDropzone" @vdropzone-success="onImageUploaded" @vdropzone-error="onImageUploadFail" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
               <div slot="tip" class="el-upload__tip">jpg/png files with a size less than 500kb</div>
             </el-form-item>
             <el-form-item label='Tags'>
               <input-tag :on-change='onTagChange' :tags='game.tags'></input-tag>
             </el-form-item>
-            <el-form-item label='Game Type'>
+            <el-form-item label='Game Type' prop="category">
               <el-select v-model="game.category" filterable placeholder="Select">
                 <el-option v-for="item in gameTypeOptions" :key="item.value" :label="item.label" :value="item.value">
                 </el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="File">
+            <el-form-item label="File" prop="gameFile">
               <el-upload
                 class="game-resource-upload"
                 action="/v1/upload"
-                :on-preview="handlePreview"
-                :on-remove="handleRemove"
+                :on-remove="onFileRemoved"
                 :file-list="game.fileList"
-                :on-success="handleUploadSuccess"
-                :limit="1"
+                :on-success="onFileUploaded"
                 list-type="text">
                 <el-button size="small" type="primary">Click to upload</el-button>
                 <div slot="tip" class="el-upload__tip">game files with a size less than 500kb</div>
               </el-upload>
             </el-form-item>
-            <el-form-item label='Activity Title'>
-              <el-input v-model='game.activityTitle'></el-input>
+              <el-button type='primary' @click="submitForm('game')">{{ actionText }}</el-button>
+              <el-button @click="cancelForm()">Cancel</el-button>
+          </el-form>
+          <h3> Use game info as post content</h3>
+          <el-switch
+            v-model="useGameInfoAsPost"
+            active-text="Yes"
+            inactive-text="No">
+          </el-switch>
+          <el-form ref='activity' :rules='activityRules' :model='activity' label-width='150px'>
+            <a :href="game.permLink" v-if="game.permLink">Open Steemit Post</a>
+            <el-form-item label='Activity Title' prop="activityTitle">
+              <el-input :disabled="useGameInfoAsPost" v-model='activity.activityTitle'></el-input>
             </el-form-item>
-            <el-form-item label='Activity Description'>
-              <el-input v-model='game.activityDesc' type="textarea" :rows="2" placeholder="This will be posted to steemit, game description will be used if empty"></el-input>
+            <el-form-item label='Activity Description' prop="activityDesc">
+              <el-input :disabled="useGameInfoAsPost" v-model='activity.activityDesc' type="textarea" :rows="2" placeholder="This will be posted to steemit, game description will be used if empty"></el-input>
             </el-form-item>
             <el-form-item>
-              <el-button type='primary' @click='onSubmit'>Create</el-button>
-              <el-button>Cancel</el-button>
+              <el-button type='primary' disabled="!activity.permLink" @click="submitActivity(false)">Update</el-button>
+              <el-button type='primary' @click="submitActivity(true)">New Post</el-button>
+              <el-button @click="cancelForm()">Cancel</el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -81,6 +91,9 @@
   import vue2Dropzone from 'vue2-dropzone'
   import 'vue2-dropzone/dist/vue2Dropzone.css'
   import CommonHeader from '../common/CommonHeader'
+  import GameService from '../../service/game.service'
+
+  const gameService = new GameService()
 
   export default {
     components: {
@@ -105,24 +118,62 @@
       RadioGroup,
       vueDropzone: vue2Dropzone
     },
+    props: ['id', 'mode'],
     name: 'GameEditForm',
     data () {
       return {
+        actionText: 'Create',
+        errorMessage: '',
+        useGameInfoAsPost: true,
         game: {
           title: '',
           description: '',
+          coverImage: null,
+          category: '',
+          activities: [],
+          gameFile: null,
+          lastModified: null,
+          author: null
+        },
+        activity: {
           activityTitle: '',
           activityDesc: '',
-          image: [],
-          inbrowser: '',
-          tags: ['abc', 'eef'],
-          delivery: false,
-          category: '',
-          fileList: []
+          permLink: '',
+          award: null,
+          tags: ['abc', 'eef']
+        },
+        fileList: [],
+        rules: {
+          title: [
+            { required: true, message: 'Please input the game title', trigger: 'blur' },
+            { min: 5, max: 255, message: 'Title should between 5 - 255 characters', trigger: 'blur' }
+          ],
+          description: [
+            { required: true, message: 'Please input game description', trigger: 'blur' },
+            { max: 3000, message: 'Description max 3000 characters', trigger: 'blur' }
+          ],
+          category: [
+            { required: true, message: 'Please select game type', trigger: 'change' }
+          ],
+          coverImage: [
+            { type: 'object', required: true, message: 'Please upload game image', trigger: 'change' }
+          ],
+          gameFile: [
+            { type: 'object', required: true, message: 'Please upload game file', trigger: 'change' }
+          ]
+        },
+        activityRules: {
+          activityTitle: [
+            { min: 5, max: 255, message: 'Title should between 5 - 255 characters', trigger: 'blur' }
+          ],
+          activityDesc: [
+            { max: 3000, message: 'Description max 3000 characters', trigger: 'blur' }
+          ]
         },
         dropzoneOptions: {
           url: '/v1/upload',
           maxFilesize: 4,
+          maxFiles: 1,
           thumbnailWidth: 330,
           addRemoveLinks: true,
           acceptedFiles: 'image/*',
@@ -144,30 +195,107 @@
       }
     },
     methods: {
-      onSubmit () {
-        console.log('submit!')
+      submitForm () {
         console.log(this.game)
+        this.$refs['game'].validate((valid) => {
+          if (valid) {
+            console.log('submit')
+            console.log(this.game)
+            if (this.game.id == null) {
+              gameService.create(this.game).then(() => {
+                // pop up success message
+                this.$alert('Congratulations! Your game has been created', 'Game Created', {
+                  confirmButtonText: '确定',
+                  callback: action => {
+                    // go to my game list view
+                  }
+                })
+              }).catch(error => {
+                console.log(error)
+                this.$alert('Oops! Something went wrong. Your game cannot be created right now.', 'Game Creation Fail', {
+                  confirmButtonText: '确定',
+                  callback: action => {
+                    // go to my game list view
+                  }
+                })
+                this.errorMessage = error.data
+              })
+            } else {
+              gameService.update(this.game).then(() => {
+              })
+            }
+          } else {
+            console.log('error submit!!')
+            return false
+          }
+        })
       },
+      submitActivity (isNew) {
+        if (isNew) {
+          if (this.game.id) {
+            gameService.createActivity(this.game.id, this.activity).then(activity => {
+              this.activity = activity
+            }).catch(error => {
+              console.log(error)
+              this.$message.error('Fail to post message to steemit')
+            })
+          } else {
+            this.$message.error('Please create the game first!')
+          }
+        } else {
+          gameService.createActivity(this.game.id, this.activity).then(activity => {
+            this.activity = activity
+          }).catch(error => {
+            console.log(error)
+            this.$message.error('Fail to update the last post on steemit.')
+          })
+        }
+      },
+
       onTagChange () {
         console.log('tag changed')
       },
-      handleRemove (file, fileList) {
+      onFileRemoved (file, fileList) {
         console.log(file, fileList)
       },
-      handlePreview (file) {
-        console.log(file)
-      },
-      handleUploadSuccess (response, file, fileList) {
+      onFileUploaded (response, file, fileList) {
         console.log(response)
         console.log(file)
         console.log(fileList)
+        this.fileList = [file]
+        this.game.gameFile = response[0]
       },
-      coverImageUploaded (file, response) {
+      onImageUploaded (file, response) {
         console.log('file uploaded', response)
+        this.game.coverImage = response[0]
       },
-      coverImageUploadFail (file) {
+      onImageUploadFail (file) {
         console.log('file upload fail')
       }
+    },
+    mounted () {
+      console.log('mounted')
+      console.log(this.$refs.coverImageDropzone)
+      if (this.$router.id) {
+        this.id = this.$router.id
+      }
+      if (this.id != null) {
+        this.activeIndex = 'Update'
+        gameService.getById(this.id).then(game => {
+          this.game = game
+          this.$refs.coverImageDropzone.dropzone.emit('addedfile', game.coverImage)
+          this.$refs.coverImageDropzone.dropzone.options.thumbnail.call(this.$refs.coverImageDropzone, game.coverImage, 'http://gateway.ipfs.io/ipfs/' + game.coverImage.hash)
+          this.$refs.coverImageDropzone.dropzone.emit('complete', mockFile)
+        }).catch(error => {
+          console.log(error)
+          this.fileList = [this.game.gameFile]
+        })
+      }
+      let mockFile = { name: 'a.jpg', size: '100000' }
+      this.$refs.coverImageDropzone.dropzone.emit('addedfile', mockFile)
+      this.$refs.coverImageDropzone.dropzone.options.thumbnail.call(this.$refs.coverImageDropzone, mockFile, 'https://www.adlib-recruitment.co.uk/blog/wp-content/uploads/2015/11/gamepad2.png')
+      this.$refs.coverImageDropzone.dropzone.emit('complete', mockFile)
+      this.fileList = [{name: 'a.zip', percentage: '100', size: '10000'}]
     }
   }
 </script>

@@ -23,7 +23,7 @@
           <i class="fa fa-heart" aria-hidden="true"></i>
           55
         </span>
-        <a href="#" class="play">→</a>
+        <router-link :to="{ name: 'viewGame', params: { id: game.id }}" tag="a" class="play">→</router-link>
       </div>
     </div>
   </div>

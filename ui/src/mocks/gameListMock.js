@@ -131,4 +131,27 @@ export default {
  'lastModified': 1516944591,
  'status': 0
  }
+active_votes:
+ [{voter: "good-karma", weight: 39234, rshares: "90951153550", percent: 50,…},…]
+ 0
+ :
+ {voter: "good-karma", weight: 39234, rshares: "90951153550", percent: 50,…}
+ percent
+ :
+ 50
+ reputation
+ :
+ "323368090522759"
+ rshares
+ :
+ "90951153550"
+ time
+ :
+ "2018-01-28T14:14:39"
+ voter
+ :
+ "good-karma"
+ weight
+ :
+ 39234
  */

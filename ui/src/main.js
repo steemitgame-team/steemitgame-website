@@ -37,11 +37,15 @@ import {FormItem, Checkbox,
   Menu,
   MenuItem,
   MenuItemGroup,
-  Submenu
+  Submenu,
+  Slider
 } from 'element-ui'
 
 // import { Button, Select, Input, Upload, Alert } from 'element-ui'
 import VueAwesomeSwiper from 'vue-awesome-swiper'
+import mavonEditor from 'mavon-editor'
+import 'mavon-editor/dist/css/index.css'
+import 'element-ui/lib/theme-chalk/display.css'
 
 Vue.use(FormItem)
 Vue.use(Form)
@@ -68,8 +72,9 @@ Vue.use(Menu)
 Vue.use(MenuItem)
 Vue.use(MenuItemGroup)
 Vue.use(Submenu)
+Vue.use(Slider)
 Vue.use(VueAwesomeSwiper)
-
+Vue.use(mavonEditor)
 Vue.use(BootstrapVue)
 
 Vue.config.productionTip = false

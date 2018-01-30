@@ -13,11 +13,10 @@
     components: {
       appGameGrid: GameGrid
     },
-    props: ['queryParameter'],
+    props: ['queryParameter', 'items'],
     name: 'GameList',
     data () {
       return {
-        items: null
       }
     },
     computed: {
@@ -45,7 +44,9 @@
       }
     },
     mounted () {
-      this.updateList()
+      if (this.items == null) {
+        this.updateList()
+      }
     }
   }
 </script>

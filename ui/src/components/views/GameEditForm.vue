@@ -7,19 +7,18 @@
       </div>
       <div class="editFormContainer">
         <div class='gameEditForm'>
+          <div>
           <el-form ref='game' :rules='rules' :model='game' label-width='150px'>
             <el-form-item label='Game Title' prop="title">
               <el-input v-model='game.title'></el-input>
             </el-form-item>
             <el-form-item label='Game Description' prop="description">
-              <el-input v-model='game.description' type="textarea" :rows="2" placeholder="Please input description of your game"></el-input>
+              <!--<el-input v-model='game.description' type="textarea" :rows="2" placeholder="Please input description of your game"></el-input>-->
+              <mavon-editor language="en" :subfield="false" v-model='game.description'></mavon-editor>
             </el-form-item>
             <el-form-item label='Cover Image' prop="coverImage">
               <vue-dropzone ref="coverImageDropzone" @vdropzone-success="onImageUploaded" @vdropzone-error="onImageUploadFail" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
               <div slot="tip" class="el-upload__tip">jpg/png files with a size less than 500kb</div>
-            </el-form-item>
-            <el-form-item label='Tags'>
-              <input-tag :on-change='onTagChange' :tags='game.tags'></input-tag>
             </el-form-item>
             <el-form-item label='Game Type' prop="category">
               <el-select v-model="game.category" filterable placeholder="Select">
@@ -42,13 +41,17 @@
               <el-button type='primary' @click="submitForm('game')">{{ actionText }}</el-button>
               <el-button @click="cancelForm()">Cancel</el-button>
           </el-form>
-          <h3> Use game info as post content</h3>
-          <el-switch
-            v-model="useGameInfoAsPost"
-            active-text="Yes"
-            inactive-text="No">
-          </el-switch>
+        </div>
+        <div>
+          <h3> Create Post in Steemit</h3>
           <el-form ref='activity' :rules='activityRules' :model='activity' label-width='150px'>
+            <el-form-item label='Post Content' >
+              <el-switch
+                         v-model="useGameInfoAsPost"
+                         active-text="Use Game Info"
+                         inactive-text="Customize">
+              </el-switch>
+            </el-form-item>
             <a :href="game.permLink" v-if="game.permLink">Open Steemit Post</a>
             <el-form-item label='Activity Title' prop="activityTitle">
               <el-input :disabled="useGameInfoAsPost" v-model='activity.activityTitle'></el-input>
@@ -56,12 +59,19 @@
             <el-form-item label='Activity Description' prop="activityDesc">
               <el-input :disabled="useGameInfoAsPost" v-model='activity.activityDesc' type="textarea" :rows="2" placeholder="This will be posted to steemit, game description will be used if empty"></el-input>
             </el-form-item>
+            <el-form-item label='Tags'>
+              <input-tag :on-change='onTagChange' :tags='activity.tags'></input-tag>
+            </el-form-item>
+            <el-form-item label="reward">
+              <el-slider v-model="activity.reward"></el-slider>
+            </el-form-item>
             <el-form-item>
-              <el-button type='primary' disabled="!activity.permLink" @click="submitActivity(false)">Update</el-button>
+              <el-button type='primary' :disabled="activity.permLink == null" @click="submitActivity(false)">Update</el-button>
               <el-button type='primary' @click="submitActivity(true)">New Post</el-button>
               <el-button @click="cancelForm()">Cancel</el-button>
             </el-form-item>
           </el-form>
+        </div>
         </div>
       </div>
     </el-main>
@@ -86,17 +96,20 @@
     Main,
     Select,
     Upload,
-    RadioGroup
+    RadioGroup,
+    Slider
   } from 'element-ui'
   import vue2Dropzone from 'vue2-dropzone'
   import 'vue2-dropzone/dist/vue2Dropzone.css'
   import CommonHeader from '../common/CommonHeader'
   import GameService from '../../service/game.service'
+  import ElFormItem from '../../../node_modules/element-ui/packages/form/src/form-item'
 
   const gameService = new GameService()
 
   export default {
     components: {
+      ElFormItem,
       CommonHeader,
       Checkbox,
       CheckboxGroup,
@@ -116,6 +129,7 @@
       Main,
       Upload,
       RadioGroup,
+      Slider,
       vueDropzone: vue2Dropzone
     },
     props: ['id', 'mode'],
@@ -140,6 +154,7 @@
           activityDesc: '',
           permLink: '',
           award: null,
+          reward: 100,
           tags: ['abc', 'eef']
         },
         fileList: [],
@@ -202,8 +217,9 @@
             console.log('submit')
             console.log(this.game)
             if (this.game.id == null) {
-              gameService.create(this.game).then(() => {
+              gameService.create(this.game).then((game) => {
                 // pop up success message
+                this.game.id = game.id
                 this.$alert('Congratulations! Your game has been created', 'Game Created', {
                   confirmButtonText: '确定',
                   callback: action => {
@@ -213,7 +229,7 @@
               }).catch(error => {
                 console.log(error)
                 this.$alert('Oops! Something went wrong. Your game cannot be created right now.', 'Game Creation Fail', {
-                  confirmButtonText: '确定',
+                  confirmButtonText: 'Got it',
                   callback: action => {
                     // go to my game list view
                   }
@@ -222,6 +238,7 @@
               })
             } else {
               gameService.update(this.game).then(() => {
+                console.log('game updated successfully.')
               })
             }
           } else {
@@ -283,6 +300,7 @@
         this.activeIndex = 'Update'
         gameService.getById(this.id).then(game => {
           this.game = game
+          this.game.coverImage = JSON.parse(game.coverImage)
           this.$refs.coverImageDropzone.dropzone.emit('addedfile', game.coverImage)
           this.$refs.coverImageDropzone.dropzone.options.thumbnail.call(this.$refs.coverImageDropzone, game.coverImage, 'http://gateway.ipfs.io/ipfs/' + game.coverImage.hash)
           this.$refs.coverImageDropzone.dropzone.emit('complete', mockFile)
@@ -310,7 +328,6 @@
     .gameEditForm {
       display: flex;
       justify-content: center;
-      width: 600px;
       border: 1px solid gray;
       box-shadow: 2px 2px 2px #999999;
       border-radius: 3px;

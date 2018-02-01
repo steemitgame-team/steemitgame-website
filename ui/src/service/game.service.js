@@ -3,10 +3,10 @@
  */
 /* eslint no-eval: 0 */
 import axios from 'axios'
-import steamApi from './steemAPI'
+import steemApi from './steemAPI'
 import Promise from 'bluebird'
 
-console.log(steamApi)
+console.log(steemApi)
 // export const getContentAsyc = Promise.promisify(steamApi.getContent, {
 //   context: steamApi
 // })
@@ -19,10 +19,7 @@ export default class GameService {
   }
 
   list () {
-    // return new Promise((resolve, reject) => {
-    //   resolve(GameList)
-    // })
-    return axios.get('v1/game?type=index').then(response => {
+    return axios.get('v1/game?type=audit').then(response => {
       return this.handleResponse(response)
     })
   }
@@ -66,11 +63,11 @@ export default class GameService {
   }
 
   createActivity (gameId, activity) {
-    return axios.post('v1/activity', {'gameId': gameId, 'activity': activity})
+    return axios.post('v1/post', activity)
   }
 
   updateActivity (gameId, activity) {
-    return axios.put('v1/activity', {'gameId': gameId, 'activity': activity})
+    return axios.put('v1/post', {'gameId': gameId, 'activity': activity})
   }
 
   /**
@@ -87,23 +84,28 @@ export default class GameService {
       comments: [],
       tags: []
     }
-
     for (let i = 0; i < game.activities.length; i++) {
       let activity = game.activities[i]
       // currently only display the comment on the latest post
       if (i === game.activities.length - 1) {
         // result.comments = activity.comments
-        steamApi.getContentRepliesAsync(activity.account, activity.permlink).then(response => {
+        // steamApi.getContentRepliesAsync(/*activity.account*/'steemitgame.test', activity.permlink).then(response => {
+        steemApi.getContentRepliesAsync('steemitgame.test', activity.permlink).then(response => {
           console.log('## content replies ###', activity.title)
           console.log(response)
           result.comments = response
+        })
+
+        this.getComments('', 'steemitgame.test', activity.permlink).then(comments => {
+          result.comments = comments
         })
       }
       if (activity.status !== 0) {
         // already closed, get award directly from backend data
         result.totalAward += activity.award
       } else {
-        promises.push(steamApi.getContentAsync(activity.account, activity.permlink).then(response => {
+        // promises.push(steamApi.getContentAsync(/*activity.account*/'steemitgame.test', activity.permlink).then(response => {
+        promises.push(steemApi.getContentAsync('steemitgame.test', activity.permlink).then(response => {
           console.log('get data for content: ' + activity.permlink, response)
           if (response.json_metadata) {
             let metadata = JSON.parse(response.json_metadata)
@@ -117,7 +119,9 @@ export default class GameService {
             }
           }
           result.totalAward += Number.parseFloat(response.pending_payout_value ? response.pending_payout_value.replace(' SBD') : 0)
-          result.activeVotes.push(response.active_votes)
+          if (response.active_votes && response.active_votes.length > 0) {
+            result.activeVotes = result.activeVotes.concat(response.active_votes)
+          }
         }))
 
         // promises.push(axios.get('https://api.steemjs.com/get_content', {author: activity.account, permlink: activity.permlink}).then(response => {
@@ -139,6 +143,30 @@ export default class GameService {
     })
   }
 
+  getComments (category, author, permlink) {
+    return steemApi.getStateAsync(`/${category}/@${author}/${permlink}`).then(apiRes => ({
+      rootCommentsList: this.getRootCommentsList(apiRes),
+      commentsChildrenList: this.getCommentsChildrenLists(apiRes),
+      content: apiRes.content
+    }))
+  }
+
+  getCommentsChildrenLists = (apiRes) => {
+    const listsById = {}
+    Object.keys(apiRes.content).forEach((commentKey) => {
+      listsById[apiRes.content[commentKey].id] = apiRes.content[commentKey].replies.map(
+        childKey => apiRes.content[childKey].id
+      )
+    })
+    return listsById
+  }
+
+  getRootCommentsList (apiRes) {
+    return Object.keys(apiRes.content)
+      .filter(commentKey => apiRes.content[commentKey].depth === 1)
+      .map(commentKey => apiRes.content[commentKey].id)
+  }
+
   handleResponse (response) {
     let data = response.data
     if (data.items) {
@@ -155,10 +183,21 @@ export default class GameService {
 
   convertJsonToGame (gameJson) {
     if (gameJson.coverImage) {
-      gameJson.coverImage = JSON.parse(gameJson.coverImage)
+      try {
+        gameJson.coverImage = JSON.parse(gameJson.coverImage)
+      } catch (error) {
+        gameJson.coverImage = {}
+      }
     }
     if (gameJson.gameUrl) {
-      gameJson.gameUrl = JSON.parse(gameJson.gameUrl)
+      try {
+        gameJson.gameUrl = JSON.parse(gameJson.gameUrl)
+      } catch (error) {
+        gameJson.gameUrl = {}
+      }
+    }
+    if (gameJson.activities == null) {
+      gameJson.activities = []
     }
     return gameJson
   }
@@ -167,6 +206,7 @@ export default class GameService {
     let clonnedGame = Object.assign({}, game)
     clonnedGame.coverImage = JSON.stringify(game.coverImage)
     clonnedGame.gameUrl = JSON.stringify(game.gameUrl)
+    delete clonnedGame.activities
     return clonnedGame
   }
 }

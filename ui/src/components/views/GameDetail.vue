@@ -23,6 +23,9 @@
                   <span class="activeVotes">
                     <i class="fa fa-thumbs-o-up" aria-hidden="true"></i> {{votes}}
                   </span>
+                  <span class="report">
+                    <i class="fa fa-flag-checkered" aria-hidden="true"></i>
+                  </span>
                   <span class="type">
                     Type: {{game.category}}
                   </span>
@@ -31,14 +34,23 @@
                   <span v-for="tag in metadata.tags" class="gameTag">{{tag}}</span>
                 </div>
                 <div class="authorInfo">
-                  <div class="avatar" :style="'background-image: url(https://steemitimages.com/u/' + this.game.account + '/avatar'"></div>
+                  <avatar :accountName="game.account"></avatar>
                   <div class="accountName"><a :href="'https://steemit.com/@' + game.account" target="_blank">{{game.account}}</a></div>
                 </div>
                 <div class="description" v-html="compiledDescription">
                 </div>
                 <div class="comments">
+                  <div class="commentAction">
+                    <div class="commentActionTitle">Comments</div>
+                    <div class="commentActionText">
+                      <el-input placeholder="Leave a comment"></el-input>
+                    </div>
+                    <div class="commentActionButton">
+                      <el-button round>Comment</el-button>
+                    </div>
+                  </div>
                   <div v-for="comment in metadata.comments">
-                    {{comment.author}} : {{comment.body}} : {{comment.active_votes.length}} : {{comment.pending_payout_value}}
+                    <comment :comment="comment"></comment>
                   </div>
                 </div>
               </div>
@@ -66,6 +78,8 @@
   import CommonHeader from '../common/CommonHeader'
   import CommonFooter from '../common/CommonFooter.vue'
   import GameList from '../shared/GameList'
+  import Avatar from '../shared/Avatar'
+  import Comment from '../shared/Comment'
   import GameService from '../../service/game.service'
   import mockData from '../../mocks/gameListMock'
   import moment from 'moment'
@@ -76,7 +90,9 @@
     components: {
       GameList,
       CommonHeader,
-      CommonFooter
+      CommonFooter,
+      Avatar,
+      Comment
     },
     data () {
       return {
@@ -90,13 +106,14 @@
     props: ['id'],
     computed: {
       compiledDescription () {
-        return marked(this.game.description, { sanitize: true })
+        if (this.game.description) {
+          return marked(this.game.description, {sanitize: true})
+        } else {
+          return ''
+        }
       },
       postedTime () {
         return moment(this.game.lastModified, 'x').fromNow()
-      },
-      userIcon () {
-        return 'background-image: url(https://steemitimages.com/u/' + this.game.account + 'bizheng/avatar'
       },
       votes () {
         return this.metadata && this.metadata.activeVotes ? this.metadata.activeVotes.length : 0
@@ -133,6 +150,26 @@
 
   .gameInfo {
     padding: 10px;
+
+    .comments {
+      margin-top: 20px;
+      .commentAction {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        .commentActionTitle {
+          display:flex;
+        }
+        .commentActionText {
+          display:flex;
+          margin-top: 10px;
+        }
+        .commentActionButton {
+          display:flex;
+          flex-direction: row-reverse;
+          margin-top: 10px;
+        }
+      }
+    }
   }
   .gameTags {
     margin: 20px 0;
@@ -176,18 +213,6 @@
 
   .authorInfo {
     display: flex;
-    .avatar {
-      vertical-align: top;
-      display: inline-block;
-      margin-right: 25px;
-      height: 36px;
-      width: 36px;
-      cursor: pointer;
-      background-size: cover;
-      backgroud-repeat: no-repeat;
-      backgroud-position: 50% 50%;
-      border-radius: 50%;
-    }
     .accountName {
       line-height: 36px;
     }

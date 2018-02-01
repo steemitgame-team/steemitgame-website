@@ -26,7 +26,7 @@
                 </el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="File" prop="gameFile">
+            <el-form-item label="File" prop="gameUrl">
               <el-upload
                 class="game-resource-upload"
                 action="/v1/upload"
@@ -53,10 +53,10 @@
               </el-switch>
             </el-form-item>
             <a :href="game.permLink" v-if="game.permLink">Open Steemit Post</a>
-            <el-form-item label='Activity Title' prop="activityTitle">
+            <el-form-item label='Activity Title' prop="activityTitle" v-if="!useGameInfoAsPost">
               <el-input :disabled="useGameInfoAsPost" v-model='activity.activityTitle'></el-input>
             </el-form-item>
-            <el-form-item label='Activity Description' prop="activityDesc">
+            <el-form-item label='Activity Description' prop="activityDesc" v-if="!useGameInfoAsPost">
               <el-input :disabled="useGameInfoAsPost" v-model='activity.activityDesc' type="textarea" :rows="2" placeholder="This will be posted to steemit, game description will be used if empty"></el-input>
             </el-form-item>
             <el-form-item label='Tags'>
@@ -66,9 +66,9 @@
               <el-slider v-model="activity.reward"></el-slider>
             </el-form-item>
             <el-form-item>
-              <el-button type='primary' :disabled="activity.permLink == null" @click="submitActivity(false)">Update</el-button>
-              <el-button type='primary' @click="submitActivity(true)">New Post</el-button>
-              <el-button @click="cancelForm()">Cancel</el-button>
+              <el-button type='primary' v-if="activity.permLink != null" @click="submitActivity(false)">Update</el-button>
+              <el-button type='primary' :disabled="game.id == null" @click="submitActivity(true)">New Post</el-button>
+              <!--<el-button @click="cancelForm()">Cancel</el-button>-->
             </el-form-item>
           </el-form>
         </div>
@@ -136,7 +136,6 @@
     name: 'GameEditForm',
     data () {
       return {
-        actionText: 'Create',
         errorMessage: '',
         useGameInfoAsPost: true,
         game: {
@@ -145,14 +144,14 @@
           coverImage: null,
           category: '',
           activities: [],
-          gameFile: null,
+          gameUrl: null,
           lastModified: null,
-          author: null
+          account: null
         },
         activity: {
           activityTitle: '',
           activityDesc: '',
-          permLink: '',
+          permLink: null,
           award: null,
           reward: 100,
           tags: ['abc', 'eef']
@@ -173,16 +172,18 @@
           coverImage: [
             { type: 'object', required: true, message: 'Please upload game image', trigger: 'change' }
           ],
-          gameFile: [
+          gameUrl: [
             { type: 'object', required: true, message: 'Please upload game file', trigger: 'change' }
           ]
         },
         activityRules: {
           activityTitle: [
-            { min: 5, max: 255, message: 'Title should between 5 - 255 characters', trigger: 'blur' }
+            { min: 5, max: 255, message: 'Title should between 5 - 255 characters', trigger: 'blur' },
+            { required: true, message: 'Please input the post title', trigger: 'blur' }
           ],
           activityDesc: [
-            { max: 3000, message: 'Description max 3000 characters', trigger: 'blur' }
+            { max: 3000, message: 'Description max 3000 characters', trigger: 'blur' },
+            { required: true, message: 'Please input the post body', trigger: 'blur' }
           ]
         },
         dropzoneOptions: {
@@ -248,24 +249,41 @@
         })
       },
       submitActivity (isNew) {
-        if (isNew) {
-          if (this.game.id) {
-            gameService.createActivity(this.game.id, this.activity).then(activity => {
-              this.activity = activity
+        if (this.game.id) {
+          let post = Object.assign({}, this.activity)
+          if (this.useGameInfoAsPost) {
+            post.activityTitle = this.game.title
+            post.activityDescription = this.game.description
+          }
+          if (isNew) {
+            gameService.createActivity(this.game.id, post).then(response => {
+              this.resetActivity()
+              this.activity.permLink = response.permLink
             }).catch(error => {
               console.log(error)
               this.$message.error('Fail to post message to steemit')
             })
           } else {
-            this.$message.error('Please create the game first!')
+            gameService.updateActivity(this.game.id, this.activity).then(activity => {
+              console.log('update activity successfully')
+            }).catch(error => {
+              console.log(error)
+              this.$message.error('Fail to update the last post on steemit.')
+            })
           }
         } else {
-          gameService.createActivity(this.game.id, this.activity).then(activity => {
-            this.activity = activity
-          }).catch(error => {
-            console.log(error)
-            this.$message.error('Fail to update the last post on steemit.')
-          })
+          this.$message.error('Please create the game first!')
+        }
+      },
+
+      resetActivity () {
+        this.activity = {
+          activityTitle: '',
+          activityDesc: '',
+          permLink: '',
+          award: null,
+          reward: 100,
+          tags: []
         }
       },
 
@@ -280,7 +298,7 @@
         console.log(file)
         console.log(fileList)
         this.fileList = [file]
-        this.game.gameFile = response[0]
+        this.game.gameUrl = response[0]
       },
       onImageUploaded (file, response) {
         console.log('file uploaded', response)
@@ -288,6 +306,11 @@
       },
       onImageUploadFail (file) {
         console.log('file upload fail')
+      }
+    },
+    computed: {
+      actionText () {
+        return this.game.id === null ? 'Create' : 'Update'
       }
     },
     mounted () {
@@ -306,7 +329,7 @@
           this.$refs.coverImageDropzone.dropzone.emit('complete', mockFile)
         }).catch(error => {
           console.log(error)
-          this.fileList = [this.game.gameFile]
+          this.fileList = [this.game.gameUrl]
         })
       }
       let mockFile = { name: 'a.jpg', size: '100000' }

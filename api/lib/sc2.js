@@ -83,6 +83,39 @@ SteemConnect.prototype.send = function send(route, method, body, cb) {
   return promise.then(res => cb(null, res)).catch(err => cb(err, null));
 };
 
+SteemConnect.prototype.resend = function resend(route, method, body, cb) {
+  const url = `${this.options.baseURL}/api/${route}?code=123123123&scope=${this.options.scope.join(',')}&client_secret=3ff2bf3c7f72e7044635d0536fd6bc51efb34b99047f9751`;
+    console.log(url);
+  const promise = fetch(url, {
+    method,
+  })
+    .then((res) => {
+      const json = res.json();
+        console.log(json);
+      // If the status is something other than 200 we need
+      // to reject the result since the request is not considered as a fail
+      if (res.status !== 200) {
+        return json.then(result => Promise.reject(new SDKError('sc2-sdk error', result)));
+      }
+      return json;
+    })
+    .then((res) => {
+        console.log(res.error);
+      if (res.error) {
+        return Promise.reject(new SDKError('sc2-sdk error', res));
+      }
+      return res;
+    });
+
+  if (!cb) return promise;
+
+  return promise.then(res => cb(null, res)).catch(err => cb(err, null));
+};
+
+SteemConnect.prototype.reToken = function reToken(cb) {
+  return this.resend('oauth2/token', 'GET', {}, cb);
+};
+
 SteemConnect.prototype.broadcast = function broadcast(operations, cb) {
   return this.send('broadcast', 'POST', { operations }, cb);
 };

@@ -166,6 +166,7 @@
       return {
         activeNames: ['gameInfo'],
         postingInProgress: false,
+        gameActionInProgress: false,
         errorMessage: '',
         useGameInfoAsPost: true,
         game: {
@@ -238,10 +239,12 @@
             console.log('submit')
             console.log(this.game)
             if (this.game.id == null) {
+              this.gameActionInProgress = true
               gameService.create(this.game).then((game) => {
                 // pop up success message
                 this.game.id = game.id
-                this.$alert('Congratulations! Your game has been created', 'Game Created', {
+                this.gameActionInProgress = false
+                  this.$alert('Congratulations! Your game has been created', 'Game Created', {
                   confirmButtonText: '确定',
                   callback: action => {
                     // go to my game list view
@@ -249,6 +252,7 @@
                 })
               }).catch(error => {
                 console.log(error)
+                this.gameActionInProgress = false
                 this.$alert('Oops! Something went wrong. Your game cannot be created right now.', 'Game Creation Fail', {
                   confirmButtonText: 'Got it',
                   callback: action => {
@@ -258,8 +262,20 @@
                 this.errorMessage = error.data
               })
             } else {
+              this.gameActionInProgress = true
               gameService.update(this.game).then(() => {
                 console.log('game updated successfully.')
+                this.gameActionInProgress = false
+                this.$message.success('Game updated successfully')
+              }).catch(error => {
+                this.gameActionInProgress = false
+                this.$alert('Oops! Something went wrong. Your game cannot be updated right now.', 'Game Creation Fail', {
+                  confirmButtonText: 'Got it',
+                  callback: action => {
+                    // go to my game list view
+                  }
+                })
+                this.errorMessage = error.data
               })
             }
           } else {
@@ -462,6 +478,11 @@
         font-weight: bold;
         font-size: 15px;
         color: royalblue;
+      }
+
+      .dropzone .dz-preview .dz-image img{
+        width: 330px;
+        height: 200px;
       }
     }
   }

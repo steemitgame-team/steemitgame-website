@@ -29,9 +29,7 @@ export default class GameService {
   }
 
   update (game) {
-    return axios.put('v1/game/' + game.id, this.convertGameToJson(game)).then(response => {
-      return this.convertJsonToGame(response.data)
-    })
+    return axios.put('v1/game/' + game.id, this.convertGameToJson(game))
   }
 
   getById (id) {

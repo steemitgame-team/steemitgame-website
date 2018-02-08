@@ -29,7 +29,9 @@ export default class GameService {
   }
 
   update (game) {
-    return axios.put('v1/game' + game.id, game)
+    return axios.put('v1/game/' + game.id, this.convertGameToJson(game)).then(response => {
+      return this.convertJsonToGame(response.data)
+    })
   }
 
   getById (id) {
@@ -63,11 +65,29 @@ export default class GameService {
   }
 
   createActivity (gameId, activity) {
-    return axios.post('v1/post', activity)
+    let clonnedActivity = Object.assign({}, activity)
+    clonnedActivity.gameid = gameId
+    delete clonnedActivity.award
+    delete clonnedActivity.permlink
+    return axios.post('v1/post', clonnedActivity)
   }
 
   updateActivity (gameId, activity) {
     return axios.put('v1/post', {'gameId': gameId, 'activity': activity})
+  }
+
+  getComments (category, author, permlink) {
+    return steemApi.getStateAsync(`/${category}/@${author}/${permlink}`).then(apiRes => {
+      return this.handleComments(apiRes)
+    })
+  }
+
+  vote (author, permlink, weight) {
+    return axios.post(`v1/vote/${author}/${permlink}`, {weight: weight})
+  }
+
+  postComment (author, permlink, content) {
+    return axios.post(`v1/comment/${author}/${permlink}`, {content: content})
   }
 
   /**
@@ -75,66 +95,31 @@ export default class GameService {
    * Then combine them together
    * @param game
    */
-  fetchSteemitData (game) {
+  fetchSteemitMetadata (game) {
     console.log('fetchSteemitData')
     let promises = []
     let result = {
-      totalAward: 0,
+      totalPayout: 0,
       activeVotes: [],
-      comments: [],
       tags: []
     }
     for (let i = 0; i < game.activities.length; i++) {
       let activity = game.activities[i]
-      // currently only display the comment on the latest post
-      if (i === game.activities.length - 1) {
-        // result.comments = activity.comments
-        // steamApi.getContentRepliesAsync(/*activity.account*/'steemitgame.test', activity.permlink).then(response => {
-        steemApi.getContentRepliesAsync('steemitgame.test', activity.permlink).then(response => {
-          console.log('## content replies ###', activity.title)
-          console.log(response)
-          result.comments = response
-        })
-
-        this.getComments('', 'steemitgame.test', activity.permlink).then(comments => {
-          result.comments = comments
-        })
-      }
       if (activity.status !== 0) {
         // already closed, get award directly from backend data
-        result.totalAward += activity.award
+        result.totalPayout += activity.award
       } else {
         // promises.push(steamApi.getContentAsync(/*activity.account*/'steemitgame.test', activity.permlink).then(response => {
-        promises.push(steemApi.getContentAsync('steemitgame.test', activity.permlink).then(response => {
+        promises.push(this.getContentData('steemitgame.test', activity.permlink).then(response => {
           console.log('get data for content: ' + activity.permlink, response)
-          if (response.json_metadata) {
-            let metadata = JSON.parse(response.json_metadata)
-            if (metadata && metadata.tags) {
-              if (metadata.tags instanceof Array) {
-                result.tags = result.tags.concat(eval(metadata.tags))
-              } else if (typeof metadata.tags === 'string') {
-                // when there is only one tag, seems it returns a string
-                result.tags.push(metadata.tags)
-              }
-            }
+          result.totalPayout += response.totalPayout
+          if (response.tags.length > 0) {
+            result.tags = result.tags.concat(response.tags)
           }
-          result.totalAward += Number.parseFloat(response.pending_payout_value ? response.pending_payout_value.replace(' SBD') : 0)
-          if (response.active_votes && response.active_votes.length > 0) {
-            result.activeVotes = result.activeVotes.concat(response.active_votes)
+          if (response.activeVotes.length > 0) {
+            result.activeVotes = result.activeVotes.concat(response.tags)
           }
         }))
-
-        // promises.push(axios.get('https://api.steemjs.com/get_content', {author: activity.account, permlink: activity.permlink}).then(response => {
-        //   console.log('get data for content: ' + activity.permlink, response)
-        //   if (response.json_metadata) {
-        //     let metadata = JSON.parse(response.json_metadata)
-        //     if (metadata && metadata.tags) {
-        //       result.tags.push(metadata.tags)
-        //     }
-        //   }
-        //   result.totalAward += Number.parseFloat(response.pending_payout_value.replace(' SBD'))
-        //   result.activeVotes.push(response.active_votes)
-        // }))
       }
     }
 
@@ -143,12 +128,36 @@ export default class GameService {
     })
   }
 
-  getComments (category, author, permlink) {
-    return steemApi.getStateAsync(`/${category}/@${author}/${permlink}`).then(apiRes => ({
-      rootCommentsList: this.getRootCommentsList(apiRes),
-      commentsChildrenList: this.getCommentsChildrenLists(apiRes),
-      content: apiRes.content
-    }))
+  getContentData (author, permlink) {
+    return steemApi.getContentAsync(author, permlink).then(response => {
+      let result = {
+        totalPayout: 0,
+        tags: [],
+        activeVotes: []
+      }
+      if (response.json_metadata) {
+        let metadata = JSON.parse(response.json_metadata)
+        if (metadata && metadata.tags) {
+          if (metadata.tags instanceof Array) {
+            result.tags = metadata.tags
+          } else if (typeof metadata.tags === 'string') {
+            // when there is only one tag, seems it returns a string
+            result.tags = [metadata.tags]
+          }
+        }
+      }
+      let pendingPayout = Number.parseFloat(response.pending_payout_value ? response.pending_payout_value.replace(' SBD') : 0)
+      if (pendingPayout > 0) {
+        result.totalPayout = pendingPayout
+      } else {
+        let totalPayout = Number.parseFloat(response.total_payout_value ? response.total_payout_value.replace(' SBD') : 0)
+        result.totalPayout = totalPayout
+      }
+      if (response.active_votes && response.active_votes.length > 0) {
+        result.activeVotes = response.active_votes
+      }
+      return result
+    })
   }
 
   getCommentsChildrenLists = (apiRes) => {
@@ -161,10 +170,23 @@ export default class GameService {
     return listsById
   }
 
+  handleComments = (apiRes) => {
+    let comments = []
+    Object.keys(apiRes.content).forEach((commentKey) => {
+      if (apiRes.content[commentKey].depth === 1) {
+        comments.push(apiRes.content[commentKey])
+      }
+      apiRes.content[commentKey].replies = apiRes.content[commentKey].replies.map(
+        childKey => apiRes.content[childKey]
+      )
+    })
+    return comments
+  }
+
   getRootCommentsList (apiRes) {
     return Object.keys(apiRes.content)
       .filter(commentKey => apiRes.content[commentKey].depth === 1)
-      .map(commentKey => apiRes.content[commentKey].id)
+      // .map(commentKey => apiRes.content[commentKey].id)
   }
 
   handleResponse (response) {
@@ -204,8 +226,12 @@ export default class GameService {
 
   convertGameToJson (game) {
     let clonnedGame = Object.assign({}, game)
-    clonnedGame.coverImage = JSON.stringify(game.coverImage)
-    clonnedGame.gameUrl = JSON.stringify(game.gameUrl)
+    if (game.coverImage) {
+      clonnedGame.coverImage = JSON.stringify(game.coverImage)
+    }
+    if (game.gameUrl) {
+      clonnedGame.gameUrl = JSON.stringify(game.gameUrl)
+    }
     delete clonnedGame.activities
     return clonnedGame
   }

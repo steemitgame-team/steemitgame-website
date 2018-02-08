@@ -19,9 +19,9 @@
                 </div>
                 <div class="gameMetadata">
                   <span class="modifiedTime">{{postedTime}}</span>
-                  <span class="totalAward">${{metadata.totalAward}}</span>
+                  <span class="totalPayout">${{metadata.totalPayout}}</span>
                   <span class="activeVotes">
-                    <i class="fa fa-thumbs-o-up" aria-hidden="true"></i> {{votes}}
+                    <i class="fa fa-thumbs-o-up" aria-hidden="true" @click="vote"></i> {{votes}}
                   </span>
                   <span class="report">
                     <i class="fa fa-flag-checkered" aria-hidden="true"></i>
@@ -43,7 +43,7 @@
                   <div class="commentAction">
                     <div class="commentActionTitle">Comments</div>
                     <div class="commentActionText">
-                      <el-input placeholder="Leave a comment"></el-input>
+                      <el-input placeholder="Leave a comment" v-model="gameComment"></el-input>
                     </div>
                     <div class="commentActionButton">
                       <el-button round>Comment</el-button>
@@ -99,8 +99,11 @@
         isAuditMode: false,
         similarGames: mockData.items,
         game: {},
+        gameComment: '',
+        comments: [],
         metadata: {},
-        userInfo: {}
+        userInfo: {},
+        latestPost: null
       }
     },
     props: ['id'],
@@ -118,18 +121,71 @@
       votes () {
         return this.metadata && this.metadata.activeVotes ? this.metadata.activeVotes.length : 0
       }
+
     },
     methods: {
+
+      canVote () {
+        let canVote = true
+        if (this.latestPost != null && this.metadata.activeVotes != null) {
+          for (let i = 0; i < this.metadata.activeVotes.length; i++) {
+            if (this.metadata.activeVotes[i].voter === 'steemitgame.test') {
+              canVote = false
+              break
+            }
+          }
+        } else {
+          canVote = false
+        }
+        return canVote
+      },
+      vote (weight) {
+        if (weight == null) {
+          weight = 5000
+        }
+        if (this.canVote()) {
+          gameService.vote(this.latestPost.author, this.latestPost.permlink, weight).then(response => {
+            this.$message('vote successfully')
+            this.refreshSteemitMetaData()
+          }).catch(error => {
+            console.log('Fail to vote ', this.latestPost, error)
+            this.$alert('Fail to vote, please try it later.')
+          })
+        } else {
+          this.$message({
+            message: 'You have already vote this game.',
+            type: 'warning'
+          })
+        }
+      },
+      refreshSteemitMetaData () {
+        if (this.game) {
+          this.latestPost = null
+          if (this.game & this.game.activities && this.game.activities.length > 0) {
+            this.latestPost = this.game.activities[this.game.activities.length - 1]
+          }
+          gameService.fetchSteemitMetadata(this.game).then(response => {
+            console.log('get steem data', response)
+            this.metadata = response
+          })
+        }
+      },
+      refreshSteemitComments () {
+        if (this.game & this.game.activities && this.game.activities.length > 0) {
+          let activity = this.game.activities[this.game.activities.length - 1]
+          gameService.getComments('', activity.author, activity.permlink).then(response => {
+            this.comments = response
+          })
+        }
+      }
     },
     mounted () {
       if (this.id) {
         gameService.getById(this.id).then(response => {
           this.game = response
           console.log('mounted successfully', this.game)
-          gameService.fetchSteemitData(this.game).then(response => {
-            console.log('get steem data', response)
-            this.metadata = response
-          })
+          this.refreshSteemitMetaData()
+          this.refreshSteemitComments()
         })
       }
     }
@@ -196,13 +252,16 @@
 
     .activeVotes {
       float: right;
+      i {
+        cursor: pointer;
+      }
     }
 
     .modifiedTime {
       float: left;
     }
 
-    .totalAward {
+    .totalPayout {
       float: right;
     }
 

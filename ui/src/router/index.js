@@ -29,7 +29,8 @@ export default new Router({
     {
       path: '/game/edit/:id',
       name: 'editGame',
-      component: GameEditForm
+      component: GameEditForm,
+      props: true
     },
     {
       path: '/game',

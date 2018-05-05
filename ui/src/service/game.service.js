@@ -135,8 +135,8 @@ export default class GameService {
       //   // already closed, get award directly from backend data
       //   result.totalPayout += activity.payout
       // } else {
-        // promises.push(steamApi.getContentAsync(/*activity.account*/'steemitgame.test', activity.permlink).then(response => {
-      promises.push(this.getContentData('steemitgame.test', activity.permlink).then(response => {
+      promises.push(this.getContentData(activity.account, activity.permlink).then(response => {
+      // promises.push(this.getContentData('steemitgame.test', activity.permlink).then(response => {
         console.log('get data for content: ' + activity.permlink, response)
         result.totalPayout += response.totalPayout
         if (response.tags.length > 0) {

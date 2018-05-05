@@ -57,7 +57,7 @@
 
       updatePendingGames () {
         this.loading = true
-        gameService.query({status: 0, report: 0, limit: 1000, includeComment: true}).then(result => {
+        gameService.query({status: 0, limit: 1000, includeComment: true}).then(result => {
           console.log(result)
           this.auditItems = result.items
           console.log('get the game item list', this.auditItems)

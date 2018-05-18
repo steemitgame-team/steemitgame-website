@@ -20,7 +20,7 @@
           <div class="metadata">
             <span class="votes">
               <el-tooltip class="item" effect="dark" content="Vote" placement="top">
-                <i class="fa fa-thumbs-o-up" aria-hidden="true" :disabled="!canVote()" @click="voteUp()"></i> {{votesCount}}
+                <i class="fa fa-thumbs-o-up" aria-hidden="true" :disabled="!alreadyVoted()" @click="voteUp()"></i> {{votesCount}}
               </el-tooltip>
             </span>
             <span class="award">${{payout}}</span>

@@ -220,7 +220,6 @@
         })
       },
       voteUp () {
-        debugger
         if (this.$store.state.loggedIn) {
           if (this.alreadyVoted === false) {
             this.voting = true

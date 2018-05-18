@@ -21,7 +21,8 @@
                   <span class="totalPayout">${{metadata.totalPayout}}</span>
                   <span class="activeVotes">
                     <el-tooltip class="item" effect="dark" content="Vote" placement="top">
-                      <i class="fa fa-thumbs-o-up" aria-hidden="true" @click="voteUp"></i>
+                      <i v-if="!alreadyVoted" class="fa fa-thumbs-o-up" aria-hidden="true" @click="voteUp" v-loading="voting"></i>
+                      <i v-if="alreadyVoted" class="fa fa-thumbs-up" aria-hidden="true" @click="voteUp"></i>
                     </el-tooltip>
                      {{votes}}
                   </span>
@@ -44,7 +45,7 @@
                   <avatar :account="game.account"></avatar>
                   <div class="accountName"><a :href="'https://steemit.com/@' + game.account" target="_blank">{{game.account}}</a></div>
                 </div>
-                <div class="description" v-html="compiledDescription">
+                <div class="description markdown-body" v-html="compiledDescription">
                 </div>
                 <div class="comments" v-loading="loadingComment">
                   <div class="commentAction">
@@ -139,8 +140,10 @@
         loadingComment: false,
         reporting: false,
         approving: false,
+        voting: false,
         dialogFormVisible: false,
         approveDialogFormVisible: false,
+
         form: {
           comment: '',
           approveComment: ''
@@ -167,6 +170,20 @@
       },
       approveCommentIsEmpty () {
         return this.form.approveComment == null || this.form.approveComment.trim().length === 0
+      },
+      alreadyVoted () {
+        let voted = false
+        if (this.latestPost != null && this.metadata.activeVotes != null) {
+          for (let i = 0; i < this.metadata.activeVotes.length; i++) {
+            if (this.metadata.activeVotes[i].voter === this.$store.state.user.account) {
+              voted = true
+              break
+            }
+          }
+        } else {
+          voted = false
+        }
+        return voted
       }
     },
     methods: {
@@ -202,32 +219,29 @@
           this.approving = false
         })
       },
-      canVote () {
-        let canVote = true
-        if (this.latestPost != null && this.metadata.activeVotes != null && this.$store.state.loggedIn) {
-          for (let i = 0; i < this.metadata.activeVotes.length; i++) {
-            if (this.metadata.activeVotes[i].voter === this.$store.state.user.account) {
-              canVote = false
-              break
-            }
+      voteUp () {
+        debugger
+        if (this.$store.state.loggedIn) {
+          if (this.alreadyVoted === false) {
+            this.voting = true
+            gameService.vote(this.latestPost.account, this.latestPost.permlink, 5000).then(response => {
+              this.$message('vote successfully')
+              this.refreshSteemitMetaData()
+            }).catch(error => {
+              console.log('Fail to vote ', this.latestPost, error)
+              this.$alert('Fail to vote, please try it later.')
+            }).finally(() => {
+              this.voting = false
+            })
+          } else {
+            this.$message({
+              message: 'You have already voted this game.',
+              type: 'warning'
+            })
           }
         } else {
-          canVote = false
-        }
-        return canVote
-      },
-      voteUp () {
-        if (this.canVote()) {
-          gameService.vote(this.latestPost.account, this.latestPost.permlink, 5000).then(response => {
-            this.$message('vote successfully')
-            this.refreshSteemitMetaData()
-          }).catch(error => {
-            console.log('Fail to vote ', this.latestPost, error)
-            this.$alert('Fail to vote, please try it later.')
-          })
-        } else {
           this.$message({
-            message: 'You have already vote this game.',
+            message: 'Please log in first to vote this game.',
             type: 'warning'
           })
         }
@@ -261,7 +275,6 @@
         }
       },
       refreshSteemitMetaData () {
-//        debugger
         if (this.game) {
           this.latestPost = null
           if (this.game && this.game.activities && this.game.activities.length > 0) {
@@ -290,19 +303,23 @@
         }
       },
       fetchGame () {
+        this.showApprove = false
         if (this.id) {
           gameService.getById(this.id).then(response => {
             this.game = response
-            if (this.game.status === 1 || this.$store.getters.isAuditor) {
+            if (this.game.status === 1 || this.$store.getters.isAuditor || (this.$store.state.loggedIn && this.$store.getters.user.account === this.game.account)) {
               this.gameUrl = 'https://ipfs.io/ipfs/' + this.game.gameUrl.hash
               console.log('mounted successfully', this.game)
+              this.showApprove = this.$store.getters.isAuditor && this.game && this.game.status === 0 && this.latestPost != null
               this.refreshSteemitMetaData()
               this.refreshSteemitComments()
               this.fetchSimilarGame(this.game.category)
             } else {
-              this.$message.error('This game cannot be played!')
+              this.$message.error('This game has not been approved so cannot be played!')
             }
-            this.showApprove = this.$store.getters.isAuditor && this.game && this.game.status === 0 && this.latestPost != null
+          }).catch(error => {
+            console.log('Fail to load the game with id: ' + this.id, error)
+            this.$message.error('Fail to load the game. Please make sure the game exist.')
           })
         }
       },

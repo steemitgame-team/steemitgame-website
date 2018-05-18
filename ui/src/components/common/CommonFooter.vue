@@ -2,11 +2,15 @@
   <div class="common-footer" >
       <ul class="social-icons1 agileinfo">
         <li><a href="#"><i class="fa fa-facebook"></i></a></li>
-        <li><a href="#"><i class="fa fa-twitter"></i></a></li>
-        <li><a href="#"><i class="fa fa-linkedin"></i></a></li>
+        <!--<li><a href="#"><i class="fa fa-twitter"></i></a></li>-->
+        <!--<li><a href="#"><i class="fa fa-linkedin"></i></a></li>-->
         <li><a href="#"><i class="fa fa-youtube"></i></a></li>
-        <li><a href="#"><i class="fa fa-google-plus"></i></a></li>
+        <!--<li><a href="#"><i class="fa fa-google-plus"></i></a></li>-->
       </ul>
+    <div class="policy-link">
+      <router-link :to="{name: 'cookiePolicy'}" tag="a">Cookie Policy</router-link> |
+      <router-link :to="{name: 'termsOfService'}" tag="a">Terms of Service</router-link>
+    </div>
   </div>
 </template>
 
@@ -31,8 +35,23 @@
     position: fixed;
     bottom: 0px;
     z-index: 10001;
-  }
+    display: flex;
 
+    .policy-link {
+      color: white;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      a {
+        margin: 0 10px;
+        color: white;
+
+      }
+      a:hover {
+        color: red
+      }
+    }
+  }
 
   .common-footer ul.social-icons1 {
     list-style: none;
@@ -71,4 +90,5 @@
   .common-footer ul.social-icons1 li a:hover {
     color:#fff;
   }
+
 </style>

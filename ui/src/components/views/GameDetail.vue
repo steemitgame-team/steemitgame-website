@@ -35,9 +35,12 @@
                     Type: {{game.category}}
                   </span>
                 </div>
-                <div v-if="showApprove" class="approve">
-                  <el-button @click="approveDialogFormVisible = true">Approve this game</el-button>
-                </div>
+                  <div v-if="showApprove" class="approve">
+                    <el-button @click="approveDialogFormVisible = true" :disabled="this.latestPost == null">Approve this game</el-button>
+                    <el-tooltip class="item" effect="dark" content="Cannot be approved because it does not have any post." placement="top">
+                      <i v-if="this.lastPost == null" class="el-icon-warning" style="color: red"></i>
+                    </el-tooltip>
+                  </div>
                 <div class="gameTags">
                   <span v-for="tag in metadata.tags" class="gameTag">{{tag}}</span>
                 </div>
@@ -309,7 +312,7 @@
             if (this.game.status === 1 || this.$store.getters.isAuditor || (this.$store.state.loggedIn && this.$store.getters.user.account === this.game.account)) {
               this.gameUrl = 'https://ipfs.io/ipfs/' + this.game.gameUrl.hash
               console.log('mounted successfully', this.game)
-              this.showApprove = this.$store.getters.isAuditor && this.game && this.game.status === 0 && this.latestPost != null
+              this.showApprove = this.$store.getters.isAuditor && this.game && this.game.status === 0
               this.refreshSteemitMetaData()
               this.refreshSteemitComments()
               this.fetchSimilarGame(this.game.category)

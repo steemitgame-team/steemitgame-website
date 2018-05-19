@@ -292,10 +292,9 @@
       },
       refreshSteemitComments () {
         if (this.game && this.game.activities && this.game.activities.length > 0) {
-          let activity = this.game.activities[this.game.activities.length - 1]
           this.loadingComment = true
-          gameService.getComments('', activity.account, activity.permlink).then(response => {
-            this.comments = response.reverse()
+          gameService.fetchAllSteemitComments(this.game).then(response => {
+            this.comments = response.reduce((acc, currentValue) => { return acc.concat(currentValue) }, [])
           }).catch(error => {
             console.log('loading comment fail', error.reponse)
             this.$message.error('Fail to load comment')

@@ -75,7 +75,7 @@
                     <div class="apiKeyInput">
                       <el-input maxlength="64" minlength="64" size="medium" placeholder="Please generate a new key" :value="apiKey" ref="apiKeyInput" :disabled="true">
                         <el-tooltip placement="top" slot="append">
-                          <div slot="content">Copy the key to clipboard</div>
+                          <div slot="content">Copy the API key to the clipboard</div>
                           <i class="fa fa-clipboard"  aria-hidden="true" @click="copyApiKeyToClipBoard()"></i>
                         </el-tooltip>
                       </el-input>
@@ -434,7 +434,7 @@
         document.execCommand('copy')
         document.body.removeChild(dummy)
         this.$notify({
-          title: 'API Key copied successfully',
+          title: 'API Key is copied successfully',
           message: '',
           type: 'success',
           offset: 100,
